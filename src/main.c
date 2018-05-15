@@ -9,6 +9,7 @@ int currentProcessID, P, nextNode, prevNode, lastNode;
 int * matrix = NULL;
 int * vector = NULL;
 int * submatrix = NULL;
+int * computedResult = NULL;
 
 int GetNumberOfLines(const char * filename) {
   FILE * matrixFile = fopen(filename, "r");
@@ -58,6 +59,22 @@ void Scatter(int * dataSrc, int sizeSrc, int * dataDst, int sizeDst) {
   }
 }
 
+void Compute(int * submatrix, int submatrixSize, int * vector, int vectorSize, int * computedResult, int computedResultSize) {
+  int index = 0;
+  int tmp = 0;
+  for (int i = 0 ; i < computedResultSize ; i++) {
+    for (int j = 0 ; j < vectorSize ; j++) {
+      if (i == 0) {
+        tmp += submatrix[j] * vector[j];
+      } else {
+        tmp += submatrix[j+vectorSize*i] * vector[j];
+      }
+    }
+    computedResult[i] = tmp;
+    tmp = 0;
+  }
+}
+
 int main(int argc, char *argv[]) {
 
 
@@ -83,8 +100,12 @@ int main(int argc, char *argv[]) {
   // Allocate memory for the matrix and the vector
   matrix = malloc(N*N*sizeof(int));
   vector = malloc(N*sizeof(int));
+
   // Allocate enough memory for the submatrix of each process
   submatrix = malloc((N/P)*N*sizeof(int));
+
+  // Allocate enough memory for the temporary results computed by each process
+  computedResult = malloc(N/P*sizeof(int));
 
   // Read files and fill matrix/vector arrays in the ROOT process
   if (currentProcessID == ROOT_PROCESS) {
@@ -98,9 +119,11 @@ int main(int argc, char *argv[]) {
   // Scatter the matrix
   Scatter(matrix, N*N, submatrix, N/P*N);
 
+  Compute(submatrix, N/P*N, vector, N, computedResult, N/P);
 
-  for (int i = 0 ; i < N/P*N ; i++) {
-    (i == N/P*N - 1) ? printf("%d \n", submatrix[i]) : printf("%d ", submatrix[i]);
+
+  for (int i = 0 ; i < N/P ; i++) {
+    (i == N/P - 1) ? printf("%d \n", computedResult[i]) : printf("%d ", computedResult[i]);
   }
 
 
