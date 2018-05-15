@@ -10,6 +10,7 @@ int * matrix = NULL;
 int * vector = NULL;
 int * submatrix = NULL;
 int * computedResult = NULL;
+int * result = NULL;
 
 int GetNumberOfLines(const char * filename) {
   FILE * matrixFile = fopen(filename, "r");
@@ -59,6 +60,21 @@ void Scatter(int * dataSrc, int sizeSrc, int * dataDst, int sizeDst) {
   }
 }
 
+void Gather(int * computedResult, int computedResultSize) {
+  if (currentProcessID == ROOT_PROCESS) {
+    result = computedResult;
+    for (int i = 0 ; i < P - 1; i++) {
+      MPI_Recv(&result[i+computedResultSize], computedResultSize, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+  } else {
+    MPI_Send(computedResult, computedResultSize, MPI_INT, nextNode, 0, MPI_COMM_WORLD);
+    for (int i = 0 ; i < (currentProcessID - 1) % P ; i++) {
+      MPI_Recv(computedResult, computedResultSize, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Send(computedResult, computedResultSize, MPI_INT, nextNode, 0, MPI_COMM_WORLD);
+    }
+  }
+}
+
 void Compute(int * submatrix, int submatrixSize, int * vector, int vectorSize, int * computedResult, int computedResultSize) {
   int index = 0;
   int tmp = 0;
@@ -72,6 +88,12 @@ void Compute(int * submatrix, int submatrixSize, int * vector, int vectorSize, i
     }
     computedResult[i] = tmp;
     tmp = 0;
+  }
+}
+
+void DisplayFinalResult(int * result, int sizeResult) {
+  for (int i = 0 ; i < sizeResult ; i++) {
+    printf("%d\n", result[i]);
   }
 }
 
@@ -121,12 +143,19 @@ int main(int argc, char *argv[]) {
 
   Compute(submatrix, N/P*N, vector, N, computedResult, N/P);
 
+  // for (int i = 0 ; i < N/P ; i++) {
+  //   (i == N/P - 1 ) ? printf("%d\n\n", computedResult[i]) : printf("%d\n", computedResult[i]);
+  // }
 
-  for (int i = 0 ; i < N/P ; i++) {
-    (i == N/P - 1) ? printf("%d \n", computedResult[i]) : printf("%d ", computedResult[i]);
+  if (currentProcessID == ROOT_PROCESS) {
+    result = malloc(N*sizeof(int));
   }
 
+  Gather(computedResult, N/P);
 
+  if (currentProcessID == ROOT_PROCESS) {
+    DisplayFinalResult(result, N);
+  }
 
   MPI_Finalize();
 
