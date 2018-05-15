@@ -8,6 +8,7 @@ int N;
 int currentProcessID, P, nextNode, prevNode, lastNode;
 int * matrix = NULL;
 int * vector = NULL;
+int * submatrix = NULL;
 
 int GetNumberOfLines(const char * filename) {
   FILE * matrixFile = fopen(filename, "r");
@@ -42,6 +43,21 @@ void Broadcast(int * data, int dataSize) {
   }
 }
 
+void Scatter(int * dataSrc, int sizeSrc, int * dataDst, int sizeDst) {
+  if (currentProcessID == ROOT_PROCESS) {
+    for (int i = sizeDst ; i < sizeSrc ; i += sizeDst) {
+      MPI_Send(&dataSrc[i], sizeDst, MPI_INT, nextNode, 0, MPI_COMM_WORLD);
+    }
+    submatrix = &dataSrc[currentProcessID];
+  } else {
+    MPI_Recv(dataDst, sizeDst, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    for (int i = 0 ; i < (ROOT_PROCESS - 1 - currentProcessID + P) % P ; i++) {
+      MPI_Send(dataDst, sizeDst, MPI_INT, nextNode, 0, MPI_COMM_WORLD);
+      MPI_Recv(dataDst, sizeDst, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
 
 
@@ -56,28 +72,35 @@ int main(int argc, char *argv[]) {
   prevNode = (currentProcessID - 1 + P) % P;
   lastNode = (ROOT_PROCESS + P - 1) % P;
 
+  // Read the vector file (smaller) to get N in the ROOT process
   if (currentProcessID == ROOT_PROCESS) {
     N = GetNumberOfLines(vectorFilePath);
   }
 
+  // Broadcast N to every processes
   Broadcast(&N, 1);
 
+  // Allocate memory for the matrix and the vector
   matrix = malloc(N*N*sizeof(int));
   vector = malloc(N*sizeof(int));
+  // Allocate enough memory for the submatrix of each process
+  submatrix = malloc((N/P)*N*sizeof(int));
 
+  // Read files and fill matrix/vector arrays in the ROOT process
   if (currentProcessID == ROOT_PROCESS) {
     FillMatrixOrVector(matrixFilePath, matrix);
     FillMatrixOrVector(vectorFilePath, vector);
   }
 
-  Broadcast(vector, N*N);
+  // Broadcast the vector to every nodes
+  Broadcast(vector, N);
 
-  //printf("ProcessID %d : N = %d\n", currentProcessID, N);
-  //Broadcast(vector, N);
+  // Scatter the matrix
+  Scatter(matrix, N*N, submatrix, N/P*N);
 
 
-  for (int i = 0 ; i < N ; i++) {
-    (i == N - 1) ? printf("%d \n", vector[i]) : printf("%d ", vector[i]);
+  for (int i = 0 ; i < N/P*N ; i++) {
+    (i == N/P*N - 1) ? printf("%d \n", submatrix[i]) : printf("%d ", submatrix[i]);
   }
 
 
