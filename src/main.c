@@ -1,6 +1,7 @@
 # include <stdio.h>
 # include <stdlib.h>
 # include <mpi.h>
+# include <omp.h>
 
 # define ROOT_PROCESS 0
 
@@ -83,6 +84,7 @@ void Gather(int * computedResult, int computedResultSize) {
 void Compute(int * submatrix, int submatrixSize, int * vector, int vectorSize, int * computedResult, int computedResultSize) {
   int index = 0;
   int tmp = 0;
+  # pragma omp parallel for
   for (int i = 0 ; i < computedResultSize ; i++) {
     for (int j = 0 ; j < vectorSize ; j++) {
       if (i == 0) {
@@ -149,18 +151,6 @@ int main(int argc, char *argv[]) {
 
   Compute(submatrix, (N/P)*N, vector, N, computedResult, N/P);
 
-  /*
-  for (int i = 0 ; i < N/P ; i++) {
-     if (i == 0) {
-       printf("From process ID %d : %d ", currentProcessID, computedResult[i]);
-     } else if (i == N/P - 1) {
-       printf("%d\n", computedResult[i]);
-     } else {
-       printf("%d ", computedResult[i]);
-     }
-  }*/
-
-  //MPI_Gather(computedResult, N/P, MPI_INT, result, N/P, MPI_INT, ROOT_PROCESS, MPI_COMM_WORLD);
   Gather(computedResult, N/P);
 
 
