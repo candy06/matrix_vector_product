@@ -60,11 +60,13 @@ void Scatter(int * dataSrc, int sizeSrc, int * dataDst, int sizeDst) {
   }
 }
 
+
 void Gather(int * computedResult, int computedResultSize) {
   if (currentProcessID == ROOT_PROCESS) {
     result = computedResult;
-    for (int i = 0 ; i < P - 1; i++) {
-      MPI_Recv(&result[i+computedResultSize], computedResultSize, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    for (int i = 0 ; i < (P - 1) % P ; i++) {
+      //printf("%d\n", computedResultSize+i*computedResultSize);
+      MPI_Recv(&result[computedResultSize+i*computedResultSize], computedResultSize, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
   } else {
     MPI_Send(computedResult, computedResultSize, MPI_INT, nextNode, 0, MPI_COMM_WORLD);
@@ -74,6 +76,7 @@ void Gather(int * computedResult, int computedResultSize) {
     }
   }
 }
+
 
 void Compute(int * submatrix, int submatrixSize, int * vector, int vectorSize, int * computedResult, int computedResultSize) {
   int index = 0;
@@ -118,6 +121,7 @@ int main(int argc, char *argv[]) {
 
   // Broadcast N to every processes
   Broadcast(&N, 1);
+  result = malloc(N*sizeof(int));
 
   // Allocate memory for the matrix and the vector
   matrix = malloc(N*N*sizeof(int));
@@ -127,7 +131,7 @@ int main(int argc, char *argv[]) {
   submatrix = malloc((N/P)*N*sizeof(int));
 
   // Allocate enough memory for the temporary results computed by each process
-  computedResult = malloc(N/P*sizeof(int));
+  computedResult = malloc((N/P)*sizeof(int));
 
   // Read files and fill matrix/vector arrays in the ROOT process
   if (currentProcessID == ROOT_PROCESS) {
@@ -141,17 +145,22 @@ int main(int argc, char *argv[]) {
   // Scatter the matrix
   Scatter(matrix, N*N, submatrix, N/P*N);
 
-  Compute(submatrix, N/P*N, vector, N, computedResult, N/P);
+  Compute(submatrix, (N/P)*N, vector, N, computedResult, N/P);
 
-  // for (int i = 0 ; i < N/P ; i++) {
-  //   (i == N/P - 1 ) ? printf("%d\n\n", computedResult[i]) : printf("%d\n", computedResult[i]);
-  // }
+  /*
+  for (int i = 0 ; i < N/P ; i++) {
+     if (i == 0) {
+       printf("From process ID %d : %d ", currentProcessID, computedResult[i]);
+     } else if (i == N/P - 1) {
+       printf("%d\n", computedResult[i]);
+     } else {
+       printf("%d ", computedResult[i]);
+     }
+  }*/
 
-  if (currentProcessID == ROOT_PROCESS) {
-    result = malloc(N*sizeof(int));
-  }
-
+  //MPI_Gather(computedResult, N/P, MPI_INT, result, N/P, MPI_INT, ROOT_PROCESS, MPI_COMM_WORLD);
   Gather(computedResult, N/P);
+
 
   if (currentProcessID == ROOT_PROCESS) {
     DisplayFinalResult(result, N);
