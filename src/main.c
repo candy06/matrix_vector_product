@@ -63,9 +63,11 @@ void Scatter(int * dataSrc, int sizeSrc, int * dataDst, int sizeDst) {
 
 void Gather(int * computedResult, int computedResultSize) {
   if (currentProcessID == ROOT_PROCESS) {
-    result = computedResult;
+    // Copy the first computed elements of P0 into the beginning of result
+    for (int k = 0 ; k < computedResultSize ; k++) {
+      result[k] = computedResult[k];
+    }
     for (int i = 0 ; i < (P - 1) % P ; i++) {
-      //printf("%d\n", computedResultSize+i*computedResultSize);
       MPI_Recv(&result[computedResultSize+i*computedResultSize], computedResultSize, MPI_INT, prevNode, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
   } else {
