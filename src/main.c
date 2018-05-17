@@ -189,11 +189,11 @@ void Gather(int * computedResult, int computedResultSize) {
 
 void Compute(int * submatrix, int submatrixSize, int * vector, int vectorSize,
                 int * computedResult, int computedResultSize) {
-  int index = 0;
   int tmp = 0;
-  # pragma omp parallel for
-  for (int i = 0 ; i < computedResultSize ; i++) {
-    for (int j = 0 ; j < vectorSize ; j++) {
+  int i, j;
+  # pragma omp parallel for private(tmp) private(j)
+  for (i = 0 ; i < computedResultSize ; i++) {
+    for (j = 0 ; j < vectorSize ; j++) {
       if (i == 0) {
         tmp += submatrix[j] * vector[j];
       } else {
